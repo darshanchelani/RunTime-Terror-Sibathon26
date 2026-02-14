@@ -219,7 +219,8 @@ export class CatapultClashScene extends Phaser.Scene {
     yesBtn.on("pointerover", () => yesBtn.setStyle({ backgroundColor: "#ff4444" }));
     yesBtn.on("pointerout", () => yesBtn.setStyle({ backgroundColor: "#e74c3c" }));
     yesBtn.on("pointerdown", () => {
-      SocketManager.disconnect && SocketManager.disconnect();
+      this._cleanupListeners();
+      SocketManager.leaveRoom();
       this.scene.start("LobbyScene");
     });
 
@@ -482,6 +483,46 @@ export class CatapultClashScene extends Phaser.Scene {
         mode: "catapult-clash",
       });
     });
+
+    SocketManager.on("opponent-left", (data) => {
+      this._showOpponentLeftOverlay(data.message || "Your opponent has left the match!");
+    });
+  }
+
+  _showOpponentLeftOverlay(message) {
+    if (this._opponentLeftShown) return;
+    this._opponentLeftShown = true;
+    const W = this.scale.width;
+    const H = this.scale.height;
+
+    const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.75).setDepth(500).setInteractive();
+    const panel = this.add.rectangle(W / 2, H / 2, 480, 220, 0x1a1a2e, 0.97).setStrokeStyle(3, 0xffd700).setDepth(501);
+    const shadow = this.add.rectangle(W / 2 + 6, H / 2 + 8, 480, 220, 0x000000, 0.3).setDepth(500);
+    const icon = this.add.text(W / 2, H / 2 - 60, "🚪", { fontSize: "48px" }).setOrigin(0.5).setDepth(502);
+    const title = this.add.text(W / 2, H / 2 - 15, "Opponent Left!", {
+      fontSize: "28px", fontStyle: "bold", color: "#ffd700",
+      shadow: { offsetX: 0, offsetY: 2, color: "#000", blur: 8, fill: true },
+    }).setOrigin(0.5).setDepth(502);
+    const msg = this.add.text(W / 2, H / 2 + 25, message, {
+      fontSize: "16px", color: "#ccc",
+    }).setOrigin(0.5).setDepth(502);
+    const okBtn = this.add.text(W / 2, H / 2 + 70, "Back to Lobby", {
+      fontSize: "20px", fontStyle: "bold", color: "#fff", backgroundColor: "#6c5ce7",
+      padding: { x: 24, y: 10 }, stroke: "#000", strokeThickness: 2,
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(502);
+    okBtn.on("pointerover", () => okBtn.setStyle({ backgroundColor: "#a29bfe" }));
+    okBtn.on("pointerout", () => okBtn.setStyle({ backgroundColor: "#6c5ce7" }));
+    okBtn.on("pointerdown", () => {
+      this._cleanupListeners();
+      this.scene.start("LobbyScene");
+    });
+
+    this.time.delayedCall(5000, () => {
+      if (this._opponentLeftShown) {
+        this._cleanupListeners();
+        this.scene.start("LobbyScene");
+      }
+    });
   }
 
   _cleanupListeners() {
@@ -494,6 +535,8 @@ export class CatapultClashScene extends Phaser.Scene {
       "timer-tick",
       "powerup-activated",
       "game-over",
+      "opponent-left",
+      "player-left",
     ].forEach((e) => SocketManager.off(e));
   }
 

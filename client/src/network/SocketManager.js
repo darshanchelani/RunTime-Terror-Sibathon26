@@ -111,6 +111,26 @@ class SocketManagerClass {
     this.socket.emit("rematch", { roomCode: this.roomCode });
   }
 
+  leaveRoom() {
+    if (this.socket && this.roomCode) {
+      this.socket.emit("leave-room", { roomCode: this.roomCode });
+    }
+  }
+
+  disconnect() {
+    if (this.socket) {
+      this.socket.disconnect();
+    }
+  }
+
+  reconnect() {
+    if (this.socket && !this.socket.connected) {
+      this.socket.connect();
+    } else if (!this.socket) {
+      this.connect();
+    }
+  }
+
   // ── Event Listeners ──
 
   on(event, callback) {

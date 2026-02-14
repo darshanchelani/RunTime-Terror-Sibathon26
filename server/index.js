@@ -302,18 +302,60 @@ io.on("connection", (socket) => {
     );
   });
 
+  // ── Leave Room (voluntary quit) ──
+  socket.on("leave-room", ({ roomCode }) => {
+    const code = roomCode || socket.roomCode;
+    if (code && rooms.has(code)) {
+      const room = rooms.get(code);
+      const wasPlaying = room.status === "playing";
+      room.removePlayer(socket.id);
+      socket.leave(code);
+      socket.roomCode = null;
+      console.log(`🚪 Player ${socket.id} left room ${code}`);
+
+      io.to(code).emit("player-left", {
+        playerId: socket.id,
+        teamRed: room.getTeamPlayers("red"),
+        teamBlue: room.getTeamPlayers("blue"),
+      });
+
+      // If game was in progress, notify remaining players
+      if (wasPlaying) {
+        room.stopTimer();
+        io.to(code).emit("opponent-left", {
+          message: "Your opponent has left the match!",
+        });
+      }
+
+      // Clean up empty rooms
+      if (room.getPlayerCount() === 0) {
+        room.stopTimer();
+        rooms.delete(code);
+        console.log(`🗑️  Room ${code} deleted (empty)`);
+      }
+    }
+  });
+
   // ── Disconnect ──
   socket.on("disconnect", () => {
     console.log(`💔 Player disconnected: ${socket.id}`);
     const code = socket.roomCode;
     if (code && rooms.has(code)) {
       const room = rooms.get(code);
+      const wasPlaying = room.status === "playing";
       room.removePlayer(socket.id);
       io.to(code).emit("player-left", {
         playerId: socket.id,
         teamRed: room.getTeamPlayers("red"),
         teamBlue: room.getTeamPlayers("blue"),
       });
+      // If game was in progress, notify remaining players
+      if (wasPlaying) {
+        room.stopTimer();
+        io.to(code).emit("opponent-left", {
+          message: "Your opponent has left the match!",
+        });
+      }
       // Clean up empty rooms
       if (room.getPlayerCount() === 0) {
         room.stopTimer();
