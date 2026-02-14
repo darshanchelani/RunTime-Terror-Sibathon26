@@ -16,8 +16,14 @@ class GameRoom {
     this.players = new Map(); // socketId → { id, name, team, score, powerUps }
     this.quiz = new QuizEngine();
     this.powerUpManager = new PowerUpManager();
-    this.roundTimer = null;
-    this.roundDuration = 15; // seconds per question
+    this.gameTimer = null;
+    this.gameDuration = 100; // 100 seconds total game time
+    this.timeLeft = 100;
+    this.currentRound = 0;
+    this.answeredThisRound = new Set(); // tracks which teams answered this round
+    this.wrongAnswerTimeout = null; // 5s delay when both teams answer wrong
+    this._pendingAdvance = false; // prevents double question advance
+    this.teamScores = { red: 0, blue: 0 }; // direct team-level scoring (fixes single-device mode)
 
     // Mode-specific state
     this.state = this._initState();
@@ -104,6 +110,12 @@ class GameRoom {
     this.status = 'playing';
     this.state = this._initState();
     this.quiz.reset();
+    this.currentRound = 1;
+    this.timeLeft = this.gameDuration;
+    this.answeredThisRound = new Set();
+    this._pendingAdvance = false;
+    this._correctThisRound = false;
+    this.teamScores = { red: 0, blue: 0 };
     this.players.forEach(p => {
       p.score = 0;
       p.streak = 0;
@@ -115,11 +127,48 @@ class GameRoom {
     this.status = 'playing';
     this.state = this._initState();
     this.quiz.reset();
+    this.currentRound = 1;
+    this.timeLeft = this.gameDuration;
+    this.answeredThisRound = new Set();
+    this._pendingAdvance = false;
+    this._correctThisRound = false;
+    this.teamScores = { red: 0, blue: 0 };
     this.players.forEach(p => {
       p.score = 0;
       p.streak = 0;
       p.powerUps = ['double', 'freeze', 'shield'];
     });
+  }
+
+  resetRoundAnswers() {
+    this.answeredThisRound = new Set();
+  }
+
+  hasTeamAnswered(team) {
+    return this.answeredThisRound.has(team);
+  }
+
+  isRoundComplete() {
+    return this.answeredThisRound.has('red') && this.answeredThisRound.has('blue');
+  }
+
+  advanceRound() {
+    this.currentRound++;
+    this.resetRoundAnswers();
+    this.quiz.advance();
+  }
+
+  // Check if any correct answer was given this round
+  hasCorrectAnswerThisRound() {
+    return this._correctThisRound === true;
+  }
+
+  markCorrectThisRound() {
+    this._correctThisRound = true;
+  }
+
+  resetCorrectThisRound() {
+    this._correctThisRound = false;
   }
 
   getCurrentQuestion() {
@@ -132,7 +181,7 @@ class GameRoom {
       options: q.options,
       category: q.category,
       difficulty: q.difficulty,
-      timeLimit: this.roundDuration
+      timeLeft: this.timeLeft
     };
   }
 
@@ -152,24 +201,38 @@ class GameRoom {
       teamRed: this.getTeamPlayers('red'),
       teamBlue: this.getTeamPlayers('blue'),
       questionIndex: this.quiz.currentIndex,
-      totalQuestions: this.quiz.questions.length
+      totalQuestions: this.quiz.questions.length,
+      currentRound: this.currentRound,
+      timeLeft: this.timeLeft,
+      gameDuration: this.gameDuration,
+      answeredTeams: Array.from(this.answeredThisRound)
     };
   }
 
   _teamScore(team) {
-    let total = 0;
-    this.players.forEach(p => { if (p.team === team) total += p.score; });
-    return total;
+    // Use team-level scores (works correctly in single-device mode)
+    return this.teamScores[team] || 0;
   }
 
   // ── Answer Handling ────────────────────────────────────────
 
-  submitAnswer(socketId, answerIndex) {
+  submitAnswer(socketId, answerIndex, team) {
     const player = this.players.get(socketId);
-    if (!player) return { correct: false, action: null };
+    if (!player) return { correct: false, action: null, rejected: true };
+
+    // Use provided team (for single-device mode) or player's own team
+    const answeringTeam = team || player.team;
+
+    // Prevent same team from answering twice per round
+    if (this.answeredThisRound.has(answeringTeam)) {
+      return { correct: false, action: null, rejected: true, reason: 'Team already answered this round' };
+    }
 
     const q = this.quiz.getCurrentQuestionFull();
-    if (!q) return { correct: false, action: null };
+    if (!q) return { correct: false, action: null, rejected: true };
+
+    // Mark this team as having answered
+    this.answeredThisRound.add(answeringTeam);
 
     const correct = answerIndex === q.correctIndex;
     let action = null;
@@ -179,7 +242,9 @@ class GameRoom {
       player.streak++;
       pointsEarned = 10 + (player.streak > 3 ? 5 : 0); // streak bonus
       player.score += pointsEarned;
-      action = this._applyCorrectAnswer(player.team);
+      // Track score at team level (fixes single-device mode where one player answers for both teams)
+      this.teamScores[answeringTeam] = (this.teamScores[answeringTeam] || 0) + pointsEarned;
+      action = this._applyCorrectAnswer(answeringTeam);
     } else {
       player.streak = 0;
       action = { type: 'wrong', description: 'Incorrect!' };
@@ -189,9 +254,10 @@ class GameRoom {
       correct,
       correctAnswer: q.options[q.correctIndex],
       action,
-      team: player.team,
+      team: answeringTeam,
       playerName: player.name,
-      pointsEarned
+      pointsEarned,
+      rejected: false
     };
   }
 
@@ -263,18 +329,29 @@ class GameRoom {
       case 'tug-of-war':
         if (this.state.ropePosition <= -this.state.mudThreshold) return 'red';
         if (this.state.ropePosition >= this.state.mudThreshold) return 'blue';
-        // Tie-breaker: whoever pulled more
-        return this.state.redPulls >= this.state.bluePulls ? 'red' : 'blue';
+        // Tie-breaker: use rope position direction, then pulls count, then scores
+        if (this.state.ropePosition < 0) return 'red';
+        if (this.state.ropePosition > 0) return 'blue';
+        if (this.state.redPulls !== this.state.bluePulls) {
+          return this.state.redPulls > this.state.bluePulls ? 'red' : 'blue';
+        }
+        return (this.teamScores.red || 0) >= (this.teamScores.blue || 0) ? 'red' : 'blue';
       case 'rocket-rush':
         if (this.state.redAltitude >= this.state.finishLine) return 'red';
         if (this.state.blueAltitude >= this.state.finishLine) return 'blue';
-        return this.state.redAltitude >= this.state.blueAltitude ? 'red' : 'blue';
+        if (this.state.redAltitude !== this.state.blueAltitude) {
+          return this.state.redAltitude > this.state.blueAltitude ? 'red' : 'blue';
+        }
+        return (this.teamScores.red || 0) >= (this.teamScores.blue || 0) ? 'red' : 'blue';
       case 'catapult-clash':
         if (this.state.blueHealth <= 0) return 'red';
         if (this.state.redHealth <= 0) return 'blue';
-        return this.state.redHealth >= this.state.blueHealth ? 'red' : 'blue';
+        if (this.state.redHealth !== this.state.blueHealth) {
+          return this.state.redHealth > this.state.blueHealth ? 'red' : 'blue';
+        }
+        return (this.teamScores.red || 0) >= (this.teamScores.blue || 0) ? 'red' : 'blue';
       default:
-        return null;
+        return 'red';
     }
   }
 
@@ -296,14 +373,14 @@ class GameRoom {
 
   // ── Timer ──────────────────────────────────────────────────
 
-  startRoundTimer(onTick, onComplete) {
+  startGameTimer(onTick, onComplete) {
     this.stopTimer();
-    let timeLeft = this.roundDuration;
+    this.timeLeft = this.gameDuration;
 
-    this.roundTimer = setInterval(() => {
-      timeLeft--;
-      onTick(timeLeft);
-      if (timeLeft <= 0) {
+    this.gameTimer = setInterval(() => {
+      this.timeLeft--;
+      onTick(this.timeLeft);
+      if (this.timeLeft <= 0) {
         this.stopTimer();
         onComplete();
       }
@@ -311,9 +388,22 @@ class GameRoom {
   }
 
   stopTimer() {
-    if (this.roundTimer) {
-      clearInterval(this.roundTimer);
-      this.roundTimer = null;
+    if (this.gameTimer) {
+      clearInterval(this.gameTimer);
+      this.gameTimer = null;
+    }
+    this.clearWrongAnswerTimeout();
+  }
+
+  setWrongAnswerTimeout(callback, delayMs) {
+    this.clearWrongAnswerTimeout();
+    this.wrongAnswerTimeout = setTimeout(callback, delayMs);
+  }
+
+  clearWrongAnswerTimeout() {
+    if (this.wrongAnswerTimeout) {
+      clearTimeout(this.wrongAnswerTimeout);
+      this.wrongAnswerTimeout = null;
     }
   }
 }

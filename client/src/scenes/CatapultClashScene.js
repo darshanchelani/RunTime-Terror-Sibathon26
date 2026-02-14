@@ -22,8 +22,8 @@ export class CatapultClashScene extends Phaser.Scene {
   }
 
   create() {
-    const W = CONFIG.WIDTH;
-    const H = CONFIG.HEIGHT;
+    const W = this.scale.width;
+    const H = this.scale.height;
 
     this.cameras.main.setBackgroundColor(0x1a1a3e);
 
@@ -84,7 +84,7 @@ export class CatapultClashScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // ── Timer ──
-    this.timerText = this.add.text(W / 2, 25, '⏰ 15', {
+    this.timerText = this.add.text(W / 2, 25, '⏰ 100', {
       fontSize: '28px', color: '#ffd700', fontStyle: 'bold'
     }).setOrigin(0.5);
 
@@ -94,7 +94,7 @@ export class CatapultClashScene extends Phaser.Scene {
 
     // ── Question Overlay ──
     this.questionOverlay = new QuestionOverlay(this, (answerIndex) => {
-      SocketManager.submitAnswer(answerIndex);
+      SocketManager.submitAnswer(answerIndex, SocketManager.team);
     });
 
     if (this.currentQuestion) {
@@ -186,11 +186,12 @@ export class CatapultClashScene extends Phaser.Scene {
 
   // ── Boulder launch animation ──
   _launchBoulder(attackerTeam) {
-    const W = CONFIG.WIDTH;
+    const W = this.scale.width;
+    const H = this.scale.height;
     const startX = attackerTeam === 'red' ? this.redCastleX + 130 : this.blueCastleX - 130;
     const endX = attackerTeam === 'red' ? this.blueCastleX : this.redCastleX;
-    const startY = CONFIG.HEIGHT - 150;
-    const endY = CONFIG.HEIGHT - 130;
+    const startY = H - 150;
+    const endY = H - 130;
 
     const boulder = this.add.circle(startX, startY, 12, 0x636e72).setStrokeStyle(2, 0x444);
     const trail = this.add.particles(startX, startY, 'particle-smoke', {
@@ -265,25 +266,34 @@ export class CatapultClashScene extends Phaser.Scene {
     });
 
     SocketManager.on('answer-result', (data) => {
-      this.questionOverlay.showResult(data.correct);
+      this.questionOverlay.showResult(data.correct, data.team);
       if (data.correct) {
-        this.hud.showFloatingText(`+${data.pointsEarned} 💥`, CONFIG.COLORS.GREEN);
+        const color = data.team === 'red' ? CONFIG.COLORS.RED_LIGHT : CONFIG.COLORS.BLUE_LIGHT;
+        const teamLabel = data.team === 'red' ? 'RED' : 'BLUE';
+        this.hud.showFloatingText(`${teamLabel} +${data.pointsEarned} 💥`, color);
       }
+    });
+
+    SocketManager.on('answer-rejected', () => {
+      this.hud.showFloatingText('Already answered!', CONFIG.COLORS.GRAY);
     });
 
     SocketManager.on('new-question', (data) => {
       this.gameState = data.state;
       this._updateHealth();
       this.questionOverlay.showQuestion(data.question);
+      // Reset per-team answered tracking for next round
+      if (this.teamAnswered) this.teamAnswered = { red: false, blue: false };
     });
 
     SocketManager.on('timer-tick', (data) => {
       this.timerText.setText(`⏰ ${data.timeLeft}`);
-      if (data.timeLeft <= 5) this.timerText.setColor('#ff0000');
+      if (data.timeLeft <= 10) this.timerText.setColor('#ff0000');
+      else this.timerText.setColor('#ffd700');
     });
 
-    SocketManager.on('round-over', () => {
-      this.timerText.setText('⏰ --').setColor('#ffd700');
+    SocketManager.on('both-wrong', (data) => {
+      this.hud.showFloatingText(data.message || 'Both wrong! Next question...', CONFIG.COLORS.ORANGE);
     });
 
     SocketManager.on('powerup-activated', (data) => {
@@ -303,24 +313,27 @@ export class CatapultClashScene extends Phaser.Scene {
   }
 
   _cleanupListeners() {
-    ['state-update', 'answer-result', 'new-question', 'timer-tick', 'round-over', 'powerup-activated', 'game-over']
+    ['state-update', 'answer-result', 'answer-rejected', 'both-wrong', 'new-question', 'timer-tick', 'powerup-activated', 'game-over']
       .forEach(e => SocketManager.off(e));
   }
 
   _setupKeyboard() {
     const redKeys = CONFIG.KEYS.RED.ANSWER;
     const blueKeys = CONFIG.KEYS.BLUE.ANSWER;
+    this.teamAnswered = { red: false, blue: false };
 
     this.input.keyboard.on('keydown', (event) => {
       const key = event.key.toUpperCase();
       const redIdx = redKeys.indexOf(key);
-      if (redIdx !== -1) {
-        SocketManager.submitAnswer(redIdx);
+      if (redIdx !== -1 && !this.teamAnswered.red) {
+        this.teamAnswered.red = true;
+        SocketManager.submitAnswer(redIdx, 'red');
         this.questionOverlay.highlightOption(redIdx, 'red');
       }
       const blueIdx = blueKeys.indexOf(key);
-      if (blueIdx !== -1) {
-        SocketManager.submitAnswer(blueIdx);
+      if (blueIdx !== -1 && !this.teamAnswered.blue) {
+        this.teamAnswered.blue = true;
+        SocketManager.submitAnswer(blueIdx, 'blue');
         this.questionOverlay.highlightOption(blueIdx, 'blue');
       }
       if (key === CONFIG.KEYS.RED.POWERUP) this.powerUpBar.useNext('red');

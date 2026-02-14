@@ -24,15 +24,15 @@ export class BootScene extends Phaser.Scene {
     // Connect to server
     SocketManager.connect();
 
-    // Transition to lobby
+    // Transition to title screen
     this.time.delayedCall(500, () => {
-      this.scene.start('LobbyScene');
+      this.scene.start('TitleScene');
     });
   }
 
   _createProgressBar() {
-    const w = CONFIG.WIDTH;
-    const h = CONFIG.HEIGHT;
+    const w = this.scale.width;
+    const h = this.scale.height;
     const barW = 400;
     const barH = 30;
 

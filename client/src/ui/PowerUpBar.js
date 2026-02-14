@@ -14,7 +14,7 @@ export class PowerUpBar {
   }
 
   _build() {
-    const W = CONFIG.WIDTH;
+    const W = this.scene.scale.width;
     const icons = { double: '⚡ 2x', freeze: '❄️ Ice', shield: '🛡️ Def' };
     const colors = { double: 0xf39c12, freeze: 0x00cec9, shield: 0x6c5ce7 };
 
@@ -22,7 +22,7 @@ export class PowerUpBar {
     this.redButtons = [];
     this.powerUps.forEach((type, i) => {
       const x = 30 + i * 60;
-      const y = CONFIG.HEIGHT / 2 - 50;
+      const y = this.scene.scale.height / 2 - 50;
       
       const bg = this.scene.add.rectangle(x, y, 52, 52, colors[type], 0.8)
         .setStrokeStyle(2, 0xff6b6b)
@@ -49,7 +49,7 @@ export class PowerUpBar {
     this.blueButtons = [];
     this.powerUps.forEach((type, i) => {
       const x = W - 30 - i * 60;
-      const y = CONFIG.HEIGHT / 2 - 50;
+      const y = this.scene.scale.height / 2 - 50;
       
       const bg = this.scene.add.rectangle(x, y, 52, 52, colors[type], 0.8)
         .setStrokeStyle(2, 0x74b9ff)
