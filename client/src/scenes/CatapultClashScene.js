@@ -173,6 +173,20 @@ export class CatapultClashScene extends Phaser.Scene {
     // ── Socket + keyboard ──
     this._setupListeners();
     this._setupKeyboard();
+
+    // ── Handle window resize / orientation change ──
+    this.scale.on('resize', this._handleResize, this);
+    this.events.once('shutdown', () => this.scale.off('resize', this._handleResize, this));
+  }
+
+  _handleResize() {
+    if (this._resizeDebounce) clearTimeout(this._resizeDebounce);
+    this._resizeDebounce = setTimeout(() => {
+      if (this.scene.isActive('CatapultClashScene')) {
+        this._cleanupListeners();
+        this.scene.restart({ state: this.gameState, question: this.currentQuestion });
+      }
+    }, 300);
   }
 
   _createQuitButton(W, s) {
@@ -467,6 +481,7 @@ export class CatapultClashScene extends Phaser.Scene {
 
     SocketManager.on("new-question", (data) => {
       this.gameState = data.state;
+      this.currentQuestion = data.question;
       this._updateHealth();
       this.questionOverlay.showQuestion(data.question);
       // Reset per-team answered tracking for next round

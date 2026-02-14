@@ -101,6 +101,17 @@ export class TitleScene extends Phaser.Scene {
       ease: "Power3",
       onComplete: () => flash.destroy(),
     });
+
+    // ── Handle window resize / orientation change ──
+    this.scale.on('resize', this._handleResize, this);
+    this.events.once('shutdown', () => this.scale.off('resize', this._handleResize, this));
+  }
+
+  _handleResize() {
+    if (this._resizeDebounce) clearTimeout(this._resizeDebounce);
+    this._resizeDebounce = setTimeout(() => {
+      if (this.scene.isActive('TitleScene')) this.scene.restart();
+    }, 250);
   }
 
   // ── Background with layered gradients ──

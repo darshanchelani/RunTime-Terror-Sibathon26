@@ -51,7 +51,7 @@
         justify-content: center;
         background: linear-gradient(135deg, #181a3a 0%, #2e3358 60%, #0a0a2e 100%);
         color: #fff;
-        font-size: 2rem;
+        font-size: clamp(1.2rem, 3vw, 2rem);
         transition: opacity 0.5s;
         backdrop-filter: blur(12px) saturate(1.2);
       }
@@ -70,24 +70,28 @@
         pointer-events: none;
       }
       #loading h1 {
-        font-size: 3.2rem;
+        font-size: clamp(1.8rem, 6vw, 3.2rem);
         margin-bottom: 0.5rem;
-        letter-spacing: 2px;
+        letter-spacing: clamp(1px, 0.3vw, 2px);
         text-shadow: 0 2px 16px #ffd70099, 0 1px 0 #fff;
         background: linear-gradient(90deg, #ffd700 30%, #fff 70%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+        text-align: center;
+        padding: 0 1rem;
       }
       #loading .subtitle {
-        font-size: 1.1rem;
+        font-size: clamp(0.85rem, 2.5vw, 1.1rem);
         opacity: 0.8;
         text-shadow: 0 1px 8px #6c5ce7cc;
+        text-align: center;
+        padding: 0 1rem;
       }
       .spinner {
-        margin-top: 2rem;
-        width: 56px;
-        height: 56px;
-        border: 5px solid rgba(255, 255, 255, 0.18);
+        margin-top: clamp(1rem, 3vw, 2rem);
+        width: clamp(36px, 8vw, 56px);
+        height: clamp(36px, 8vw, 56px);
+        border: clamp(3px, 0.5vw, 5px) solid rgba(255, 255, 255, 0.18);
         border-top-color: #ffd700;
         border-radius: 50%;
         box-shadow: 0 0 32px #ffd70055, 0 0 8px #fff;

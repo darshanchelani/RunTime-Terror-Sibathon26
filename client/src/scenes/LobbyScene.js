@@ -13,6 +13,10 @@ export class LobbyScene extends Phaser.Scene {
     super({ key: "LobbyScene" });
   }
 
+  init(data) {
+    this._restoreData = data || null;
+  }
+
   create() {
     const W = this.scale.width;
     const H = this.scale.height;
@@ -22,10 +26,11 @@ export class LobbyScene extends Phaser.Scene {
     this._cleanupLobbyListeners();
 
     // ── State ──
-    this.selectedMode = "tug-of-war";
-    this.playerName = "Player" + Math.floor(Math.random() * 999);
-    this.roomInput = "";
-    this.inRoom = false;
+    this.selectedMode = this._restoreData?.selectedMode || "tug-of-war";
+    this.playerName = this._restoreData?.playerName || "Player" + Math.floor(Math.random() * 999);
+    this.roomInput = this._restoreData?.roomInput || "";
+    this.inRoom = this._restoreData?.inRoom || false;
+    this._restoreData = null;
 
     // ── Animated Background ──
     this._drawBackground(W, H);
@@ -71,6 +76,19 @@ export class LobbyScene extends Phaser.Scene {
 
     // ── Entry animation — fade in from black ──
     this.cameras.main.fadeIn(400, 0, 0, 0);
+
+    // ── Handle window resize / orientation change ──
+    this.scale.on('resize', this._handleResize, this);
+    this.events.once('shutdown', () => this.scale.off('resize', this._handleResize, this));
+
+    // ── Restore waiting panel if we were in a room before resize ──
+    if (this.inRoom && this.roomInput) {
+      this._showWaitingPanel(this.roomInput);
+    }
+    // Restore room code display after resize
+    if (this.roomInput && this.roomCodeText) {
+      this.roomCodeText.setText(this.roomInput);
+    }
   }
 
   _cleanupLobbyListeners() {
@@ -78,6 +96,21 @@ export class LobbyScene extends Phaser.Scene {
     SocketManager.off("player-left");
     SocketManager.off("teams-updated");
     SocketManager.off("game-started");
+  }
+
+  _handleResize() {
+    if (this._resizeDebounce) clearTimeout(this._resizeDebounce);
+    this._resizeDebounce = setTimeout(() => {
+      if (this.scene.isActive('LobbyScene')) {
+        this._cleanupLobbyListeners();
+        this.scene.restart({
+          selectedMode: this.selectedMode,
+          playerName: this.playerName,
+          roomInput: this.roomInput,
+          inRoom: this.inRoom,
+        });
+      }
+    }, 250);
   }
 
   _checkConnection() {
@@ -267,14 +300,41 @@ export class LobbyScene extends Phaser.Scene {
   // ═══════════════════════════════════════════════════════════
 
   _createModeCards(W, s) {
-    const cardY = Math.round(215 * s);
-    // Scale cards to fit within available width
-    const maxCardW = (W - 40) / 3 - 10; // leave margins
-    const cardW = Math.min(Math.round(300 * s), maxCardW);
-    const cardH = Math.min(Math.round(190 * s), Math.round(cardW * 0.625));
-    const gap = Math.max(8, Math.round(20 * s));
-    const totalWidth = 3 * cardW + 2 * gap;
-    const startX = (W - totalWidth) / 2 + cardW / 2;
+    // Responsive layout: 3 columns on wide screens, 2 on medium, 1 on tiny
+    let colCount = 3;
+    if (W < 800) colCount = 2;
+    if (W < 480) colCount = 1;
+
+    const gap = Math.max(4, Math.round(W < 480 ? 6 * s : 14 * s));
+    const maxCardW = Math.max(90, (W - 40 - (colCount - 1) * gap) / colCount);
+    const cardW = Math.min(Math.round(280 * s), maxCardW);
+    const cardH = Math.min(Math.round(170 * s), Math.round(cardW * 0.6));
+    
+    // Position cards based on column count
+    let cardPositions = [];
+    if (colCount === 1) {
+      cardPositions = [
+        { x: W / 2, y: Math.round(160 * s) },
+        { x: W / 2, y: Math.round(160 * s + cardH + gap + 30) },
+        { x: W / 2, y: Math.round(160 * s + 2 * (cardH + gap + 30)) }
+      ];
+    } else if (colCount === 2) {
+      const leftX = (W / 2) - (cardW + gap / 2);
+      const rightX = (W / 2) + (cardW + gap / 2);
+      cardPositions = [
+        { x: leftX, y: Math.round(180 * s) },
+        { x: rightX, y: Math.round(180 * s) },
+        { x: W / 2, y: Math.round(180 * s + cardH + gap + 40) }
+      ];
+    } else {
+      const totalWidth = 3 * cardW + 2 * gap;
+      const startX = (W - totalWidth) / 2 + cardW / 2;
+      cardPositions = [
+        { x: startX, y: Math.round(215 * s) },
+        { x: startX + cardW + gap, y: Math.round(215 * s) },
+        { x: startX + 2 * (cardW + gap), y: Math.round(215 * s) }
+      ];
+    }
 
     const modes = [
       {
@@ -315,8 +375,8 @@ export class LobbyScene extends Phaser.Scene {
     this.modeCards = [];
 
     modes.forEach((mode, i) => {
-      const cx = startX + i * (cardW + gap);
-      const container = this.add.container(cx, cardY);
+      const pos = cardPositions[i];
+      const container = this.add.container(pos.x, pos.y);
 
       // ── Card background ──
       const cardBg = this.add
@@ -414,13 +474,13 @@ export class LobbyScene extends Phaser.Scene {
 
       // Entry animation — cards slide up and fade in
       container.setAlpha(0).setScale(0.8);
-      container.y = cardY + 40;
+      container.y = pos.y + 40;
       this.tweens.add({
         targets: container,
         alpha: 1,
         scaleX: 1,
         scaleY: 1,
-        y: cardY,
+        y: pos.y,
         duration: 500,
         delay: 200 + i * 150,
         ease: "Back.easeOut",
@@ -456,7 +516,7 @@ export class LobbyScene extends Phaser.Scene {
         this._updateModeCards();
 
         // Click ripple
-        const ripple = this.add.circle(cx, cardY, 10, mode.color, 0.4);
+        const ripple = this.add.circle(pos.x, pos.y, 10, mode.color, 0.4);
         this.tweens.add({
           targets: ripple,
           scaleX: 8,

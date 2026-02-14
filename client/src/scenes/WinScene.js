@@ -132,6 +132,20 @@ export class WinScene extends Phaser.Scene {
 
     // Screen shake on entry
     this.cameras.main.shake(300, 0.01);
+
+    // ── Handle window resize / orientation change ──
+    this.scale.on('resize', this._handleResize, this);
+    this.events.once('shutdown', () => this.scale.off('resize', this._handleResize, this));
+  }
+
+  _handleResize() {
+    if (this._resizeDebounce) clearTimeout(this._resizeDebounce);
+    this._resizeDebounce = setTimeout(() => {
+      if (this.scene.isActive('WinScene')) {
+        SocketManager.off('rematch-started');
+        this.scene.restart({ winner: this.winner, state: this.gameState, mode: this.mode });
+      }
+    }, 250);
   }
 
   _showScoreSummary(W, H, s) {
