@@ -4,16 +4,16 @@
 // First team to drag opponent into the mud wins!
 // ============================================================
 
-import Phaser from 'phaser';
-import { CONFIG } from '../config.js';
-import { SocketManager } from '../network/SocketManager.js';
-import { QuestionOverlay } from '../ui/QuestionOverlay.js';
-import { HUD } from '../ui/HUD.js';
-import { PowerUpBar } from '../ui/PowerUpBar.js';
+import Phaser from "phaser";
+import { CONFIG } from "../config.js";
+import { SocketManager } from "../network/SocketManager.js";
+import { QuestionOverlay } from "../ui/QuestionOverlay.js";
+import { HUD } from "../ui/HUD.js";
+import { PowerUpBar } from "../ui/PowerUpBar.js";
 
 export class TugOfWarScene extends Phaser.Scene {
   constructor() {
-    super({ key: 'TugOfWarScene' });
+    super({ key: "TugOfWarScene" });
   }
 
   init(data) {
@@ -22,8 +22,8 @@ export class TugOfWarScene extends Phaser.Scene {
   }
 
   create() {
-    const W = CONFIG.WIDTH;
-    const H = CONFIG.HEIGHT;
+    const W = this.scale.width;
+    const H = this.scale.height;
 
     this.cameras.main.setBackgroundColor(0x1a3a2a);
 
@@ -35,8 +35,17 @@ export class TugOfWarScene extends Phaser.Scene {
     this.add.rectangle(W / 2, H - 5, W, 10, 0x27ae60);
 
     // ── Mud pit (center) ──
-    this.mudPit = this.add.ellipse(W / 2, H - 100, 200, 50, CONFIG.COLORS.MUD, 0.8);
-    this.add.text(W / 2, H - 100, '💩 MUD', { fontSize: '14px', color: '#fff' }).setOrigin(0.5);
+    this.mudPit = this.add.ellipse(
+      W / 2,
+      H - 100,
+      200,
+      50,
+      CONFIG.COLORS.MUD,
+      0.8,
+    );
+    this.add
+      .text(W / 2, H - 100, "💩 MUD", { fontSize: "14px", color: "#fff" })
+      .setOrigin(0.5);
 
     // ── Center line ──
     this.add.line(0, 0, W / 2, 0, W / 2, H, 0xffffff, 0.3).setOrigin(0);
@@ -51,21 +60,26 @@ export class TugOfWarScene extends Phaser.Scene {
 
     for (let i = 0; i < segCount; i++) {
       const x = startX + i * segWidth;
-      const color = i < segCount / 2 ? CONFIG.COLORS.RED_LIGHT : CONFIG.COLORS.BLUE_LIGHT;
-      const seg = this.add.rectangle(x, this.ropeY, segWidth - 2, 14, 0xc0915e)
-        .setStrokeStyle(2, 0x8B6914);
+      const color =
+        i < segCount / 2 ? CONFIG.COLORS.RED_LIGHT : CONFIG.COLORS.BLUE_LIGHT;
+      const seg = this.add
+        .rectangle(x, this.ropeY, segWidth - 2, 14, 0xc0915e)
+        .setStrokeStyle(2, 0x8b6914);
       this.ropeSegments.push(seg);
     }
 
     // ── Rope knot (center marker) ──
-    this.ropeKnot = this.add.circle(W / 2, this.ropeY, 16, CONFIG.COLORS.GOLD)
+    this.ropeKnot = this.add
+      .circle(W / 2, this.ropeY, 16, CONFIG.COLORS.GOLD)
       .setStrokeStyle(3, 0xe67e22);
-    this.knotLabel = this.add.text(W / 2, this.ropeY - 30, '⚡', { fontSize: '24px' }).setOrigin(0.5);
+    this.knotLabel = this.add
+      .text(W / 2, this.ropeY - 30, "⚡", { fontSize: "24px" })
+      .setOrigin(0.5);
 
     // ── Team characters (stick figures) ──
     this.redTeamX = 100;
     this.blueTeamX = W - 100;
-    
+
     this.redTeamGroup = this.add.container(this.redTeamX, this.ropeY);
     this.blueTeamGroup = this.add.container(this.blueTeamX, this.ropeY);
 
@@ -73,22 +87,44 @@ export class TugOfWarScene extends Phaser.Scene {
     this._drawTeamCharacter(this.blueTeamGroup, CONFIG.COLORS.BLUE, false);
 
     // ── Team labels ──
-    this.add.text(120, 20, '🔴 RED TEAM', { fontSize: '22px', color: '#ff6b6b', fontStyle: 'bold' });
-    this.add.text(W - 250, 20, '🔵 BLUE TEAM', { fontSize: '22px', color: '#74b9ff', fontStyle: 'bold' });
+    this.add.text(120, 20, "🔴 RED TEAM", {
+      fontSize: "22px",
+      color: "#ff6b6b",
+      fontStyle: "bold",
+    });
+    this.add.text(W - 250, 20, "🔵 BLUE TEAM", {
+      fontSize: "22px",
+      color: "#74b9ff",
+      fontStyle: "bold",
+    });
 
     // ── Rope position indicator ──
-    this.posText = this.add.text(W / 2, 55, 'PULL!', {
-      fontSize: '20px', color: '#ffd700', fontStyle: 'bold'
-    }).setOrigin(0.5);
+    this.posText = this.add
+      .text(W / 2, 55, "PULL!", {
+        fontSize: "20px",
+        color: "#ffd700",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5);
 
     // ── Score display ──
-    this.redScoreText = this.add.text(120, 50, 'Pulls: 0', { fontSize: '18px', color: '#ff6b6b' });
-    this.blueScoreText = this.add.text(W - 250, 50, 'Pulls: 0', { fontSize: '18px', color: '#74b9ff' });
+    this.redScoreText = this.add.text(120, 50, "Pulls: 0", {
+      fontSize: "18px",
+      color: "#ff6b6b",
+    });
+    this.blueScoreText = this.add.text(W - 250, 50, "Pulls: 0", {
+      fontSize: "18px",
+      color: "#74b9ff",
+    });
 
     // ── Timer ──
-    this.timerText = this.add.text(W / 2, 20, '⏰ 15', {
-      fontSize: '28px', color: '#ffd700', fontStyle: 'bold'
-    }).setOrigin(0.5);
+    this.timerText = this.add
+      .text(W / 2, 20, "⏰ 100", {
+        fontSize: "28px",
+        color: "#ffd700",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5);
 
     // ── HUD ──
     this.hud = new HUD(this);
@@ -98,7 +134,7 @@ export class TugOfWarScene extends Phaser.Scene {
 
     // ── Question Overlay (bottom center) ──
     this.questionOverlay = new QuestionOverlay(this, (answerIndex) => {
-      SocketManager.submitAnswer(answerIndex);
+      SocketManager.submitAnswer(answerIndex, SocketManager.team);
     });
 
     if (this.currentQuestion) {
@@ -106,12 +142,12 @@ export class TugOfWarScene extends Phaser.Scene {
     }
 
     // ── Particle emitter for pull effects ──
-    this.pullParticles = this.add.particles(0, 0, 'particle-star', {
+    this.pullParticles = this.add.particles(0, 0, "particle-star", {
       speed: { min: 100, max: 200 },
       scale: { start: 1, end: 0 },
       lifespan: 600,
-      blendMode: 'ADD',
-      emitting: false
+      blendMode: "ADD",
+      emitting: false,
     });
 
     // ── Socket listeners ──
@@ -126,11 +162,17 @@ export class TugOfWarScene extends Phaser.Scene {
     const bg = this.add.graphics();
     bg.fillGradientStyle(0x1a3a2a, 0x1a3a2a, 0x0a2a1a, 0x0a2a1a);
     bg.fillRect(0, 0, W, H);
-    
+
     // Trees / decorations
     for (let i = 0; i < 8; i++) {
       const tx = 80 + i * 160;
-      this.add.circle(tx, CONFIG.HEIGHT - 120, 25 + Math.random() * 15, 0x228B22, 0.5);
+      this.add.circle(
+        tx,
+        this.scale.height - 120,
+        25 + Math.random() * 15,
+        0x228b22,
+        0.5,
+      );
     }
   }
 
@@ -141,106 +183,143 @@ export class TugOfWarScene extends Phaser.Scene {
     container.add(this.add.circle(0, -20, 15, color));
     container.add(this.add.rectangle(0, 10, 10, 30, color));
     // Arms pulling rope
-    container.add(this.add.line(0, 0, 0, 0, dir * 30, -5, color, 1).setLineWidth(3));
-    container.add(this.add.line(0, 0, 0, 10, dir * 30, 5, color, 1).setLineWidth(3));
+    container.add(
+      this.add.line(0, 0, 0, 0, dir * 30, -5, color, 1).setLineWidth(3),
+    );
+    container.add(
+      this.add.line(0, 0, 0, 10, dir * 30, 5, color, 1).setLineWidth(3),
+    );
     // Legs
-    container.add(this.add.line(0, 0, 0, 25, -10, 45, color, 1).setLineWidth(3));
+    container.add(
+      this.add.line(0, 0, 0, 25, -10, 45, color, 1).setLineWidth(3),
+    );
     container.add(this.add.line(0, 0, 0, 25, 10, 45, color, 1).setLineWidth(3));
   }
 
   // ── Socket Listeners ──
   _setupListeners() {
-    SocketManager.on('state-update', (data) => {
+    SocketManager.on("state-update", (data) => {
       this.gameState = data.state;
       this._updateRope();
-      if (data.lastAction && data.lastAction.type === 'pull') {
+      if (data.lastAction && data.lastAction.type === "pull") {
         this._showPullEffect(data.team);
       }
     });
 
-    SocketManager.on('answer-result', (data) => {
-      this.questionOverlay.showResult(data.correct);
+    SocketManager.on("answer-result", (data) => {
+      this.questionOverlay.showResult(data.correct, data.team);
       if (data.correct) {
-        this.hud.showFloatingText(`+${data.pointsEarned}`, CONFIG.COLORS.GREEN);
+        const color =
+          data.team === "red"
+            ? CONFIG.COLORS.RED_LIGHT
+            : CONFIG.COLORS.BLUE_LIGHT;
+        const teamLabel = data.team === "red" ? "RED" : "BLUE";
+        this.hud.showFloatingText(`${teamLabel} +${data.pointsEarned}`, color);
       }
     });
 
-    SocketManager.on('new-question', (data) => {
+    SocketManager.on("answer-rejected", () => {
+      this.hud.showFloatingText("Already answered!", CONFIG.COLORS.GRAY);
+    });
+
+    SocketManager.on("new-question", (data) => {
       this.gameState = data.state;
       this._updateRope();
       this.questionOverlay.showQuestion(data.question);
+      // Reset per-team answered tracking for next round
+      if (this.teamAnswered) this.teamAnswered = { red: false, blue: false };
     });
 
-    SocketManager.on('timer-tick', (data) => {
+    SocketManager.on("timer-tick", (data) => {
       this.timerText.setText(`⏰ ${data.timeLeft}`);
-      if (data.timeLeft <= 5) {
-        this.timerText.setColor('#ff0000');
+      if (data.timeLeft <= 10) {
+        this.timerText.setColor("#ff0000");
         this.tweens.add({
           targets: this.timerText,
-          scaleX: 1.3, scaleY: 1.3,
+          scaleX: 1.3,
+          scaleY: 1.3,
           duration: 200,
-          yoyo: true
+          yoyo: true,
         });
+      } else {
+        this.timerText.setColor("#ffd700");
       }
     });
 
-    SocketManager.on('round-over', () => {
-      this.timerText.setText('⏰ --');
-      this.timerText.setColor('#ffd700');
+    SocketManager.on("both-wrong", (data) => {
+      this.hud.showFloatingText(
+        data.message || "Both wrong! Next question...",
+        CONFIG.COLORS.ORANGE,
+      );
     });
 
-    SocketManager.on('powerup-activated', (data) => {
-      this.hud.showPowerUpNotification(data.type, data.team, data.effect.description);
-      if (data.type === 'freeze') {
+    SocketManager.on("powerup-activated", (data) => {
+      this.hud.showPowerUpNotification(
+        data.type,
+        data.team,
+        data.effect.description,
+      );
+      if (data.type === "freeze") {
         this._showFreezeEffect(data.effect.target);
       }
       this.gameState = data.state;
       this._updateRope();
     });
 
-    SocketManager.on('game-over', (data) => {
+    SocketManager.on("game-over", (data) => {
       this._cleanupListeners();
-      this.scene.start('WinScene', {
+      this.scene.start("WinScene", {
         winner: data.winner,
         state: data.state,
-        mode: 'tug-of-war'
+        mode: "tug-of-war",
       });
     });
   }
 
   _cleanupListeners() {
-    ['state-update', 'answer-result', 'new-question', 'timer-tick', 'round-over', 'powerup-activated', 'game-over']
-      .forEach(e => SocketManager.off(e));
+    [
+      "state-update",
+      "answer-result",
+      "answer-rejected",
+      "both-wrong",
+      "new-question",
+      "timer-tick",
+      "powerup-activated",
+      "game-over",
+    ].forEach((e) => SocketManager.off(e));
   }
 
   // ── Keyboard (single device multiplayer) ──
   _setupKeyboard() {
     const redKeys = CONFIG.KEYS.RED.ANSWER;
     const blueKeys = CONFIG.KEYS.BLUE.ANSWER;
+    this.teamAnswered = { red: false, blue: false };
 
-    this.input.keyboard.on('keydown', (event) => {
+    this.input.keyboard.on("keydown", (event) => {
       const key = event.key.toUpperCase();
-      
-      // Red team answers
+
+      // Red team answers (only once per round)
       const redIdx = redKeys.indexOf(key);
-      if (redIdx !== -1) {
-        SocketManager.submitAnswer(redIdx);
-        this.questionOverlay.highlightOption(redIdx, 'red');
+      if (redIdx !== -1 && !this.teamAnswered.red) {
+        this.teamAnswered.red = true;
+        SocketManager.submitAnswer(redIdx, "red");
+        this.questionOverlay.highlightOption(redIdx, "red");
       }
 
-      // Blue team answers
+      // Blue team answers (only once per round)
       const blueIdx = blueKeys.indexOf(key);
-      if (blueIdx !== -1) {
-        SocketManager.submitAnswer(blueIdx);
-        this.questionOverlay.highlightOption(blueIdx, 'blue');
+      if (blueIdx !== -1 && !this.teamAnswered.blue) {
+        this.teamAnswered.blue = true;
+        SocketManager.submitAnswer(blueIdx, "blue");
+        this.questionOverlay.highlightOption(blueIdx, "blue");
       }
 
       // Power-ups
       if (key === CONFIG.KEYS.RED.POWERUP) {
-        this.powerUpBar.useNext('red');
+        this.powerUpBar.useNext("red");
       }
       if (key === CONFIG.KEYS.BLUE.POWERUP) {
-        this.powerUpBar.useNext('blue');
+        this.powerUpBar.useNext("blue");
       }
     });
   }
@@ -253,14 +332,14 @@ export class TugOfWarScene extends Phaser.Scene {
     const normalizedPos = (pos / this.gameState.mudThreshold) * maxShift;
 
     // Move knot
-    this.ropeKnot.x = CONFIG.WIDTH / 2 + normalizedPos;
+    this.ropeKnot.x = this.scale.width / 2 + normalizedPos;
     this.knotLabel.x = this.ropeKnot.x;
 
     // Shift rope segments
     const segCount = this.ropeSegments.length;
     const segWidth = 35;
     const totalWidth = segCount * segWidth;
-    const startX = (CONFIG.WIDTH - totalWidth) / 2 + normalizedPos;
+    const startX = (this.scale.width - totalWidth) / 2 + normalizedPos;
 
     this.ropeSegments.forEach((seg, i) => {
       seg.x = startX + i * segWidth;
@@ -268,9 +347,11 @@ export class TugOfWarScene extends Phaser.Scene {
 
     // Update position text
     const pct = Math.abs(Math.round((pos / this.gameState.mudThreshold) * 100));
-    if (pos < -10) this.posText.setText(`← RED pulling! ${pct}%`).setColor('#ff6b6b');
-    else if (pos > 10) this.posText.setText(`BLUE pulling! ${pct}% →`).setColor('#74b9ff');
-    else this.posText.setText('⚡ TIED!').setColor('#ffd700');
+    if (pos < -10)
+      this.posText.setText(`← RED pulling! ${pct}%`).setColor("#ff6b6b");
+    else if (pos > 10)
+      this.posText.setText(`BLUE pulling! ${pct}% →`).setColor("#74b9ff");
+    else this.posText.setText("⚡ TIED!").setColor("#ffd700");
 
     // Update pull counts
     this.redScoreText.setText(`Pulls: ${this.gameState.redPulls || 0}`);
@@ -279,8 +360,10 @@ export class TugOfWarScene extends Phaser.Scene {
 
   // ── Visual Effects ──
   _showPullEffect(team) {
-    const x = team === 'red' ? CONFIG.WIDTH / 2 - 100 : CONFIG.WIDTH / 2 + 100;
-    
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const x = team === "red" ? W / 2 - 100 : W / 2 + 100;
+
     this.pullParticles.setPosition(x, this.ropeY);
     this.pullParticles.explode(15);
 
@@ -289,26 +372,43 @@ export class TugOfWarScene extends Phaser.Scene {
 
     // Flash team side
     const flash = this.add.rectangle(
-      team === 'red' ? CONFIG.WIDTH / 4 : 3 * CONFIG.WIDTH / 4,
-      CONFIG.HEIGHT / 2, CONFIG.WIDTH / 2, CONFIG.HEIGHT,
-      team === 'red' ? CONFIG.COLORS.RED : CONFIG.COLORS.BLUE, 0.15
+      team === "red" ? W / 4 : (3 * W) / 4,
+      H / 2,
+      W / 2,
+      H,
+      team === "red" ? CONFIG.COLORS.RED : CONFIG.COLORS.BLUE,
+      0.15,
     );
     this.tweens.add({
-      targets: flash, alpha: 0, duration: 400,
-      onComplete: () => flash.destroy()
+      targets: flash,
+      alpha: 0,
+      duration: 400,
+      onComplete: () => flash.destroy(),
     });
   }
 
   _showFreezeEffect(team) {
-    const x = team === 'red' ? CONFIG.WIDTH / 4 : 3 * CONFIG.WIDTH / 4;
-    const freeze = this.add.rectangle(x, CONFIG.HEIGHT / 2, CONFIG.WIDTH / 2, CONFIG.HEIGHT, 0x00cec9, 0.3);
-    const txt = this.add.text(x, CONFIG.HEIGHT / 2, '❄️ FROZEN!', {
-      fontSize: '48px', color: '#00cec9', fontStyle: 'bold'
-    }).setOrigin(0.5);
+    const W = this.scale.width;
+    const H = this.scale.height;
+    const x = team === "red" ? W / 4 : (3 * W) / 4;
+    const freeze = this.add.rectangle(x, H / 2, W / 2, H, 0x00cec9, 0.3);
+    const txt = this.add
+      .text(x, H / 2, "❄️ FROZEN!", {
+        fontSize: "48px",
+        color: "#00cec9",
+        fontStyle: "bold",
+      })
+      .setOrigin(0.5);
 
     this.tweens.add({
-      targets: [freeze, txt], alpha: 0, duration: 4500, delay: 500,
-      onComplete: () => { freeze.destroy(); txt.destroy(); }
+      targets: [freeze, txt],
+      alpha: 0,
+      duration: 4500,
+      delay: 500,
+      onComplete: () => {
+        freeze.destroy();
+        txt.destroy();
+      },
     });
   }
 
