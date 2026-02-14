@@ -4,15 +4,15 @@
 // for all 3 game modes (tug-of-war, rocket-rush, catapult-clash)
 // ============================================================
 
-const { QuizEngine } = require('./QuizEngine');
-const { PowerUpManager } = require('./PowerUps');
+const { QuizEngine } = require("./QuizEngine");
+const { PowerUpManager } = require("./PowerUps");
 
 class GameRoom {
   constructor(code, mode, io) {
     this.code = code;
     this.mode = mode; // 'tug-of-war' | 'rocket-rush' | 'catapult-clash'
     this.io = io;
-    this.status = 'waiting'; // waiting | playing | finished
+    this.status = "waiting"; // waiting | playing | finished
     this.players = new Map(); // socketId → { id, name, team, score, powerUps }
     this.quiz = new QuizEngine();
     this.powerUpManager = new PowerUpManager();
@@ -31,31 +31,31 @@ class GameRoom {
 
   _initState() {
     switch (this.mode) {
-      case 'tug-of-war':
+      case "tug-of-war":
         return {
-          ropePosition: 0,        // -100 (red wins) to +100 (blue wins); 0 = center
-          pullStrength: 8,        // how much each correct answer pulls
-          mudThreshold: 100,      // rope pos needed to win
+          ropePosition: 0, // -100 (red wins) to +100 (blue wins); 0 = center
+          pullStrength: 8, // how much each correct answer pulls
+          mudThreshold: 100, // rope pos needed to win
           redPulls: 0,
-          bluePulls: 0
+          bluePulls: 0,
         };
-      case 'rocket-rush':
+      case "rocket-rush":
         return {
-          redAltitude: 0,         // 0 to 100 (finish line)
+          redAltitude: 0, // 0 to 100 (finish line)
           blueAltitude: 0,
           boostAmount: 8,
           finishLine: 100,
           redSpeed: 0,
-          blueSpeed: 0
+          blueSpeed: 0,
         };
-      case 'catapult-clash':
+      case "catapult-clash":
         return {
           redHealth: 100,
           blueHealth: 100,
-          damage: 12,             // damage per correct hit
+          damage: 12, // damage per correct hit
           redShots: 0,
           blueShots: 0,
-          lastHit: null
+          lastHit: null,
         };
       default:
         return {};
@@ -71,7 +71,7 @@ class GameRoom {
       team,
       score: 0,
       streak: 0,
-      powerUps: ['double', 'freeze', 'shield'] // starting power-ups
+      powerUps: ["double", "freeze", "shield"], // starting power-ups
     };
     this.players.set(socketId, player);
     return player;
@@ -87,27 +87,29 @@ class GameRoom {
 
   getTeamPlayers(team) {
     const list = [];
-    this.players.forEach(p => { if (p.team === team) list.push(p); });
+    this.players.forEach((p) => {
+      if (p.team === team) list.push(p);
+    });
     return list;
   }
 
   getSmallestTeam() {
-    const red = this.getTeamPlayers('red').length;
-    const blue = this.getTeamPlayers('blue').length;
-    return red <= blue ? 'red' : 'blue';
+    const red = this.getTeamPlayers("red").length;
+    const blue = this.getTeamPlayers("blue").length;
+    return red <= blue ? "red" : "blue";
   }
 
   switchPlayerTeam(socketId) {
     const player = this.players.get(socketId);
     if (!player) return null;
-    player.team = player.team === 'red' ? 'blue' : 'red';
+    player.team = player.team === "red" ? "blue" : "red";
     return player.team;
   }
 
   // ── Game Flow ──────────────────────────────────────────────
 
   startGame() {
-    this.status = 'playing';
+    this.status = "playing";
     this.state = this._initState();
     this.quiz.reset();
     this.currentRound = 1;
@@ -116,15 +118,15 @@ class GameRoom {
     this._pendingAdvance = false;
     this._correctThisRound = false;
     this.teamScores = { red: 0, blue: 0 };
-    this.players.forEach(p => {
+    this.players.forEach((p) => {
       p.score = 0;
       p.streak = 0;
-      p.powerUps = ['double', 'freeze', 'shield'];
+      p.powerUps = ["double", "freeze", "shield"];
     });
   }
 
   reset() {
-    this.status = 'playing';
+    this.status = "playing";
     this.state = this._initState();
     this.quiz.reset();
     this.currentRound = 1;
@@ -133,10 +135,10 @@ class GameRoom {
     this._pendingAdvance = false;
     this._correctThisRound = false;
     this.teamScores = { red: 0, blue: 0 };
-    this.players.forEach(p => {
+    this.players.forEach((p) => {
       p.score = 0;
       p.streak = 0;
-      p.powerUps = ['double', 'freeze', 'shield'];
+      p.powerUps = ["double", "freeze", "shield"];
     });
   }
 
@@ -149,7 +151,9 @@ class GameRoom {
   }
 
   isRoundComplete() {
-    return this.answeredThisRound.has('red') && this.answeredThisRound.has('blue');
+    return (
+      this.answeredThisRound.has("red") && this.answeredThisRound.has("blue")
+    );
   }
 
   advanceRound() {
@@ -181,7 +185,7 @@ class GameRoom {
       options: q.options,
       category: q.category,
       difficulty: q.difficulty,
-      timeLeft: this.timeLeft
+      timeLeft: this.timeLeft,
     };
   }
 
@@ -195,17 +199,17 @@ class GameRoom {
       status: this.status,
       ...this.state,
       scores: {
-        red: this._teamScore('red'),
-        blue: this._teamScore('blue')
+        red: this._teamScore("red"),
+        blue: this._teamScore("blue"),
       },
-      teamRed: this.getTeamPlayers('red'),
-      teamBlue: this.getTeamPlayers('blue'),
+      teamRed: this.getTeamPlayers("red"),
+      teamBlue: this.getTeamPlayers("blue"),
       questionIndex: this.quiz.currentIndex,
       totalQuestions: this.quiz.questions.length,
       currentRound: this.currentRound,
       timeLeft: this.timeLeft,
       gameDuration: this.gameDuration,
-      answeredTeams: Array.from(this.answeredThisRound)
+      answeredTeams: Array.from(this.answeredThisRound),
     };
   }
 
@@ -225,7 +229,12 @@ class GameRoom {
 
     // Prevent same team from answering twice per round
     if (this.answeredThisRound.has(answeringTeam)) {
-      return { correct: false, action: null, rejected: true, reason: 'Team already answered this round' };
+      return {
+        correct: false,
+        action: null,
+        rejected: true,
+        reason: "Team already answered this round",
+      };
     }
 
     const q = this.quiz.getCurrentQuestionFull();
@@ -243,11 +252,12 @@ class GameRoom {
       pointsEarned = 10 + (player.streak > 3 ? 5 : 0); // streak bonus
       player.score += pointsEarned;
       // Track score at team level (fixes single-device mode where one player answers for both teams)
-      this.teamScores[answeringTeam] = (this.teamScores[answeringTeam] || 0) + pointsEarned;
+      this.teamScores[answeringTeam] =
+        (this.teamScores[answeringTeam] || 0) + pointsEarned;
       action = this._applyCorrectAnswer(answeringTeam);
     } else {
       player.streak = 0;
-      action = { type: 'wrong', description: 'Incorrect!' };
+      action = { type: "wrong", description: "Incorrect!" };
     }
 
     return {
@@ -257,15 +267,15 @@ class GameRoom {
       team: answeringTeam,
       playerName: player.name,
       pointsEarned,
-      rejected: false
+      rejected: false,
     };
   }
 
   _applyCorrectAnswer(team) {
     switch (this.mode) {
-      case 'tug-of-war': {
+      case "tug-of-war": {
         const pull = this.state.pullStrength;
-        if (team === 'red') {
+        if (team === "red") {
           this.state.ropePosition -= pull; // red pulls left (negative)
           this.state.redPulls++;
         } else {
@@ -273,26 +283,39 @@ class GameRoom {
           this.state.bluePulls++;
         }
         // Clamp
-        this.state.ropePosition = Math.max(-this.state.mudThreshold,
-          Math.min(this.state.mudThreshold, this.state.ropePosition));
-        return { type: 'pull', team, position: this.state.ropePosition };
+        this.state.ropePosition = Math.max(
+          -this.state.mudThreshold,
+          Math.min(this.state.mudThreshold, this.state.ropePosition),
+        );
+        return { type: "pull", team, position: this.state.ropePosition };
       }
 
-      case 'rocket-rush': {
+      case "rocket-rush": {
         const boost = this.state.boostAmount;
-        if (team === 'red') {
-          this.state.redAltitude = Math.min(this.state.finishLine, this.state.redAltitude + boost);
+        if (team === "red") {
+          this.state.redAltitude = Math.min(
+            this.state.finishLine,
+            this.state.redAltitude + boost,
+          );
           this.state.redSpeed = boost;
         } else {
-          this.state.blueAltitude = Math.min(this.state.finishLine, this.state.blueAltitude + boost);
+          this.state.blueAltitude = Math.min(
+            this.state.finishLine,
+            this.state.blueAltitude + boost,
+          );
           this.state.blueSpeed = boost;
         }
-        return { type: 'boost', team, altitude: team === 'red' ? this.state.redAltitude : this.state.blueAltitude };
+        return {
+          type: "boost",
+          team,
+          altitude:
+            team === "red" ? this.state.redAltitude : this.state.blueAltitude,
+        };
       }
 
-      case 'catapult-clash': {
+      case "catapult-clash": {
         const dmg = this.state.damage;
-        if (team === 'red') {
+        if (team === "red") {
           this.state.blueHealth = Math.max(0, this.state.blueHealth - dmg);
           this.state.redShots++;
         } else {
@@ -300,7 +323,7 @@ class GameRoom {
           this.state.blueShots++;
         }
         this.state.lastHit = { attacker: team, damage: dmg };
-        return { type: 'hit', team, damage: dmg };
+        return { type: "hit", team, damage: dmg };
       }
 
       default:
@@ -312,12 +335,14 @@ class GameRoom {
 
   checkWinCondition() {
     switch (this.mode) {
-      case 'tug-of-war':
+      case "tug-of-war":
         return Math.abs(this.state.ropePosition) >= this.state.mudThreshold;
-      case 'rocket-rush':
-        return this.state.redAltitude >= this.state.finishLine ||
-               this.state.blueAltitude >= this.state.finishLine;
-      case 'catapult-clash':
+      case "rocket-rush":
+        return (
+          this.state.redAltitude >= this.state.finishLine ||
+          this.state.blueAltitude >= this.state.finishLine
+        );
+      case "catapult-clash":
         return this.state.redHealth <= 0 || this.state.blueHealth <= 0;
       default:
         return false;
@@ -326,32 +351,40 @@ class GameRoom {
 
   getWinner() {
     switch (this.mode) {
-      case 'tug-of-war':
-        if (this.state.ropePosition <= -this.state.mudThreshold) return 'red';
-        if (this.state.ropePosition >= this.state.mudThreshold) return 'blue';
+      case "tug-of-war":
+        if (this.state.ropePosition <= -this.state.mudThreshold) return "red";
+        if (this.state.ropePosition >= this.state.mudThreshold) return "blue";
         // Tie-breaker: use rope position direction, then pulls count, then scores
-        if (this.state.ropePosition < 0) return 'red';
-        if (this.state.ropePosition > 0) return 'blue';
+        if (this.state.ropePosition < 0) return "red";
+        if (this.state.ropePosition > 0) return "blue";
         if (this.state.redPulls !== this.state.bluePulls) {
-          return this.state.redPulls > this.state.bluePulls ? 'red' : 'blue';
+          return this.state.redPulls > this.state.bluePulls ? "red" : "blue";
         }
-        return (this.teamScores.red || 0) >= (this.teamScores.blue || 0) ? 'red' : 'blue';
-      case 'rocket-rush':
-        if (this.state.redAltitude >= this.state.finishLine) return 'red';
-        if (this.state.blueAltitude >= this.state.finishLine) return 'blue';
+        return (this.teamScores.red || 0) >= (this.teamScores.blue || 0)
+          ? "red"
+          : "blue";
+      case "rocket-rush":
+        if (this.state.redAltitude >= this.state.finishLine) return "red";
+        if (this.state.blueAltitude >= this.state.finishLine) return "blue";
         if (this.state.redAltitude !== this.state.blueAltitude) {
-          return this.state.redAltitude > this.state.blueAltitude ? 'red' : 'blue';
+          return this.state.redAltitude > this.state.blueAltitude
+            ? "red"
+            : "blue";
         }
-        return (this.teamScores.red || 0) >= (this.teamScores.blue || 0) ? 'red' : 'blue';
-      case 'catapult-clash':
-        if (this.state.blueHealth <= 0) return 'red';
-        if (this.state.redHealth <= 0) return 'blue';
+        return (this.teamScores.red || 0) >= (this.teamScores.blue || 0)
+          ? "red"
+          : "blue";
+      case "catapult-clash":
+        if (this.state.blueHealth <= 0) return "red";
+        if (this.state.redHealth <= 0) return "blue";
         if (this.state.redHealth !== this.state.blueHealth) {
-          return this.state.redHealth > this.state.blueHealth ? 'red' : 'blue';
+          return this.state.redHealth > this.state.blueHealth ? "red" : "blue";
         }
-        return (this.teamScores.red || 0) >= (this.teamScores.blue || 0) ? 'red' : 'blue';
+        return (this.teamScores.red || 0) >= (this.teamScores.blue || 0)
+          ? "red"
+          : "blue";
       default:
-        return 'red';
+        return "red";
     }
   }
 
@@ -359,15 +392,20 @@ class GameRoom {
 
   usePowerUp(socketId, type) {
     const player = this.players.get(socketId);
-    if (!player) return { success: false, reason: 'Player not found' };
+    if (!player) return { success: false, reason: "Player not found" };
 
     const idx = player.powerUps.indexOf(type);
-    if (idx === -1) return { success: false, reason: 'Power-up not available' };
+    if (idx === -1) return { success: false, reason: "Power-up not available" };
 
     // Consume the power-up
     player.powerUps.splice(idx, 1);
 
-    const effect = this.powerUpManager.activate(type, player.team, this.state, this.mode);
+    const effect = this.powerUpManager.activate(
+      type,
+      player.team,
+      this.state,
+      this.mode,
+    );
     return { success: true, team: player.team, effect };
   }
 

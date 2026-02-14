@@ -3,8 +3,8 @@
 // All network communication goes through here
 // ============================================================
 
-import { io } from 'socket.io-client';
-import { CONFIG } from '../config.js';
+import { io } from "socket.io-client";
+import { CONFIG } from "../config.js";
 
 class SocketManagerClass {
   constructor() {
@@ -17,15 +17,15 @@ class SocketManagerClass {
   connect() {
     if (this.socket && this.socket.connected) return;
     this.socket = io(CONFIG.SERVER_URL, {
-      transports: ['websocket', 'polling']
+      transports: ["websocket", "polling"],
     });
 
-    this.socket.on('connect', () => {
-      console.log('🔌 Connected to BattleBrains server');
+    this.socket.on("connect", () => {
+      console.log("🔌 Connected to BattleBrains server");
     });
 
-    this.socket.on('disconnect', () => {
-      console.log('💔 Disconnected from server');
+    this.socket.on("disconnect", () => {
+      console.log("💔 Disconnected from server");
     });
   }
 
@@ -34,10 +34,11 @@ class SocketManagerClass {
   createRoom(playerName, mode) {
     return new Promise((resolve, reject) => {
       this.playerName = playerName;
-      this.socket.emit('create-room', { playerName, mode }, (response) => {
+      this.socket.emit("create-room", { playerName, mode }, (response) => {
         if (response.success) {
           this.roomCode = response.roomCode;
           this.team = response.team;
+          globalThis.__socketManagerTeam = this.team;
           resolve(response);
         } else {
           reject(response.error);
@@ -49,10 +50,11 @@ class SocketManagerClass {
   joinRoom(roomCode, playerName) {
     return new Promise((resolve, reject) => {
       this.playerName = playerName;
-      this.socket.emit('join-room', { roomCode, playerName }, (response) => {
+      this.socket.emit("join-room", { roomCode, playerName }, (response) => {
         if (response.success) {
           this.roomCode = response.roomCode;
           this.team = response.team;
+          globalThis.__socketManagerTeam = this.team;
           resolve(response);
         } else {
           reject(response.error);
@@ -62,27 +64,37 @@ class SocketManagerClass {
   }
 
   switchTeam() {
-    this.socket.emit('switch-team', { roomCode: this.roomCode });
+    this.socket.emit("switch-team", { roomCode: this.roomCode });
+    // Optimistically toggle team; server will confirm via teams-updated
+    this.team = this.team === "red" ? "blue" : "red";
+    globalThis.__socketManagerTeam = this.team;
   }
 
   startGame() {
-    this.socket.emit('start-game', { roomCode: this.roomCode });
+    this.socket.emit("start-game", { roomCode: this.roomCode });
   }
 
-  submitAnswer(answerIndex) {
-    this.socket.emit('submit-answer', { roomCode: this.roomCode, answerIndex });
+  submitAnswer(answerIndex, team) {
+    this.socket.emit("submit-answer", {
+      roomCode: this.roomCode,
+      answerIndex,
+      team,
+    });
   }
 
   usePowerUp(type) {
-    this.socket.emit('use-powerup', { roomCode: this.roomCode, powerUpType: type });
+    this.socket.emit("use-powerup", {
+      roomCode: this.roomCode,
+      powerUpType: type,
+    });
   }
 
   requestNextQuestion() {
-    this.socket.emit('next-question', { roomCode: this.roomCode });
+    this.socket.emit("next-question", { roomCode: this.roomCode });
   }
 
   rematch() {
-    this.socket.emit('rematch', { roomCode: this.roomCode });
+    this.socket.emit("rematch", { roomCode: this.roomCode });
   }
 
   // ── Event Listeners ──
